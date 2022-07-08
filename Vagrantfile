@@ -2,7 +2,9 @@
 # vi: set ft=ruby :
 
 BOX_IMAGE = "ubuntu/bionic64"
-NODE_COUNT = 2
+NUM_WORKER_NODES = 2
+IP_NW = "10.0.0."
+IP_START = 10
 
 Vagrant.configure("2") do |config|
 
@@ -14,13 +16,13 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "master" do |master|
     master.vm.hostname = "master"
-    master.vm.network :private_network, ip: "192.168.56.10"
+    master.vm.network :private_network, ip: IP_NW + "#{IP_START}"
   end
 
-  (1..NODE_COUNT).each do |i|
+  (1..NUM_WORKER_NODES).each do |i|
     config.vm.define "worker-0#{i}" do |worker|
       worker.vm.hostname = "worker-0#{i}"
-      worker.vm.network :private_network, ip: "192.168.56.#{i + 10}"
+      worker.vm.network :private_network, ip: IP_NW + "#{IP_START + i}"
     end
   end
 
