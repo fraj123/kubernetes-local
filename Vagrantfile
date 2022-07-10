@@ -16,15 +16,15 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "master" do |master|
     master.vm.hostname = "master"
-    master.vm.network :private_network, ip: IP_NW + "#{IP_START}", hostname: true 
-    master.vm.provision "shell", path: "./scripts/common.sh"
+    master.vm.network :private_network, ip: IP_NW + "#{IP_START}" 
+    master.vm.provision "shell", path: "./scripts/k8scp.sh"
   end
 
   (1..NUM_WORKER_NODES).each do |i|
     config.vm.define "worker-0#{i}" do |worker|
       worker.vm.hostname = "worker-0#{i}"
-      worker.vm.network :private_network, ip: IP_NW + "#{IP_START + i}", hostname: true
-      worker.vm.provision "shell", path: "./scripts/common.sh"
+      worker.vm.network :private_network, ip: IP_NW + "#{IP_START + i}"
+      worker.vm.provision "shell", path: "./scripts/k8sSecond.sh"
     end
   end
 

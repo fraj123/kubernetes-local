@@ -1,9 +1,9 @@
 #!/bin/bash
 set -xe
-# Bring node to current versions and install an editor and other software
+# Update repositories and install editor and othe software
 sudo apt-get update && sudo apt-get upgrade -y
 
-sudo apt-get install -y vim nano libseccomp2
+sudo apt-get install vim libseccomp2 -y
 
 # Prepare for cri-o
 sudo modprobe overlay
@@ -15,6 +15,8 @@ echo "net.bridge.bridge-nf-call-ip6tables = 1" | sudo tee -a /etc/sysctl.d/99-ku
  
 sudo sysctl --system
 
+# Add an alias for the local system to /etc/hosts
+sudo sh -c "echo '10.0.0.10 cp' >> /etc/hosts"
 
 # Set the versions to use
 export OS=xUbuntu_18.04
@@ -33,7 +35,9 @@ sudo apt-get update
 # Install cri-o
 sudo apt-get install -y cri-o cri-o-runc podman buildah
 
-# A bug fix to get past a cri-o update
+sleep 3
+
+# Fix a bug, may not always be needed
 sudo sed -i 's/,metacopy=on//g' /etc/containers/storage.conf
 
 
@@ -55,6 +59,46 @@ sudo apt-get update
 
 sudo apt-get install -y kubeadm=1.21.1-00 kubelet=1.21.1-00 kubectl=1.21.1-00
 
+# Now install the cp using the kubeadm.yaml file from tarball
+sudo kubeadm init --config=$(find / -name kubeadm.yaml 2>/dev/null )
+
+sleep 5
+
+echo "Running the steps explained at the end of the init output for you"
+
+mkdir -p $HOME/.kube
+
+sleep 2
+
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+
+sleep 2
+
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+echo "Apply Calico network plugin from ProjectCalico.org"
+echo "If you see an error they may have updated the yaml file"
+echo "Use a browser, navigate to the site and find the updated file"
+
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+
 echo
-echo "Script common finished. Move to the next step"
+
+# Add alias for podman to docker for root and non-root user
+echo "alias sudo="sudo "" | tee -a $HOME/.bashrc
+echo "alias docker=podman" | tee -a $HOME/.bashrc
+
+# Add Helm to make our life easier
+wget https://get.helm.sh/helm-v3.5.4-linux-amd64.tar.gz
+tar -xf helm-v3.5.4-linux-amd64.tar.gz
+sudo cp linux-amd64/helm /usr/local/bin/
+
 echo
+sleep 3
+echo "You should see this node in the output below"
+echo "It can take up to a mintue for node to show Ready status"
+echo
+kubectl get node
+echo
+echo
+echo "Script finished. Move to the next step"
