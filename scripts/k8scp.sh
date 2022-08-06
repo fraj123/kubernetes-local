@@ -17,6 +17,8 @@ sudo sysctl --system
 
 # Add an alias for the local system to /etc/hosts
 sudo sh -c "echo '10.0.0.10 cp' >> /etc/hosts"
+sudo sh -c "echo '10.0.0.11 worker-01' >> /etc/hosts"
+sudo sh -c "echo '10.0.0.12 worker-02' >> /etc/hosts"
 
 # Set the versions to use
 export OS=xUbuntu_18.04
