@@ -9,6 +9,18 @@
       cache_valid_time: 86400
     when: ansible_os_family == "Debian"
 
+  - name: "Add overlay module"
+    become: true
+    community.general.modprobe:
+      name: overlay
+      state: present
+
+  - name: "Add br_netfilter module"
+    become: true
+    community.general.modprobe:
+      name: br_netfilter
+      state: present
+
   - name: "Disable SWAP"
     become: true
     shell: |
