@@ -20,10 +20,9 @@ Vagrant.configure("2") do |config|
   config.vm.define "master" do |master|
     master.vm.hostname = "master"
     master.vm.network :private_network, ip: IP_NW + "#{IP_START}" 
-    #master.vm.provision "shell", path: "./scripts/k8scp.sh"
-    #master.vm.provision "ansible" do |ansible|
-      #ansible.playbook = "./configuration/k8scp.yml"
-    #end
+    master.vm.provision "ansible" do |ansible|
+      ansible.playbook = "./configuration/k8scp.yml"
+    end
   end
 
 
