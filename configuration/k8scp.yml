@@ -1,0 +1,25 @@
+---
+- hosts: all
+  tasks:
+  - name: "Update repositories on Ubuntu"
+    become: true
+    apt:
+      upgrade: yes
+      update_cache: true
+      cache_valid_time: 86400
+    when: ansible_os_family == "Debian"
+
+  - name: "Disable SWAP"
+    become: true
+    shell: |
+      swapoff -a
+    when: ansible_os_family == "RedHat"
+
+  - name: "Permanently disable swap"
+    become: true
+    replace:
+      path: /etc/fstab
+      regexp: '^([^#].*?\s+swap\s+.*)$'
+      replace: '#\1'
+    when: ansible_os_family == "RedHat"
+
