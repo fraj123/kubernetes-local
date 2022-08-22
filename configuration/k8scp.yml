@@ -1,37 +1,88 @@
 ---
 - hosts: all
+  become: true
   tasks:
-  - name: "Update repositories on Ubuntu"
-    become: true
+  - name: Update repositories on Ubuntu
     apt:
       upgrade: yes
       update_cache: true
       cache_valid_time: 86400
     when: ansible_os_family == "Debian"
 
+  - name: Add libcontainer repository
+    ansible.builtin.yum_repository:
+      name: devel_kubic_libcontainers_stable
+      description: "Repo for libcontainer"
+      baseurl: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/CentOS_8/
+      gpgcheck: yes
+      gpgkey: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/CentOS_8/repodata/repomd.xml.key
+      enabled: true
+
+  - name: Add crio repository
+    ansible.builtin.yum_repository:
+      name: devel_kubic_libcontainers_stable_cri-o_1.24_1.24.2
+      description: "Repo for cri-o"
+      baseurl: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.24:/1.24.2/CentOS_8/
+      gpgcheck: yes
+      gpgkey: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/1.24:/1.24.2/CentOS_8/repodata/repomd.xml.key
+      enabled: true
+
+  - name: Install cri-o, cri-o-runc, podman, buildah
+    yum:
+      name: [cri-o, cri-tools, podman, buildah]
+      state: latest
+      update_cache: true
+
+  - name: Disable SWAP
+    command: swapoff -a
+    when: ansible_swaptotal_mb > 0
+
+  - name: Permanently disable swap
+    replace:
+      path: /etc/fstab
+      regexp: '^([^#].*?\s+swap\s+.*)$'
+      replace: '#\1'
+        
   - name: "Add overlay module"
-    become: true
     community.general.modprobe:
       name: overlay
       state: present
 
   - name: "Add br_netfilter module"
-    become: true
     community.general.modprobe:
       name: br_netfilter
       state: present
 
-  - name: "Disable SWAP"
-    become: true
-    shell: |
-      swapoff -a
-    when: ansible_os_family == "RedHat"
+  - name: Add kubernetes repository
+    ansible.builtin.yum_repository:
+      name: kubernetes
+      description: "Repo for kubernetes"
+      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+      gpgcheck: yes
+      gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      exclude: kubelet kubeadm kubectl
+      enabled: true
 
-  - name: "Permanently disable swap"
-    become: true
-    replace:
-      path: /etc/fstab
-      regexp: '^([^#].*?\s+swap\s+.*)$'
-      replace: '#\1'
-    when: ansible_os_family == "RedHat"
+  - name: Put SELinux in permissive mode
+    ansible.posix.selinux:
+      policy: targeted
+      state: permissive
 
+  - name: Install Kubernetes packages
+    yum:
+      name: [kubelet, kubeadm, kubectl]
+      disable_excludes: kubernetes
+
+  - Name: Initialize the kubernetes cluster using kubeadm
+    command: kubeadm init --apiserver-advertise-address="192.168.50.10" --apiserver-cert-extra-sans="192.168.50.10"  --node-name k8s-master --pod-network-cidr=192.168.0.0/16
+
+  - name: Setup kubeconfig for vagrant user
+    command: "{{ item }}"
+    with_items:
+      - mkdir -p /home/vagrant/.kube
+      - cp -i /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+      - chown vagrant:vagrant /home/vagrant/.kube/config
+
+  - name: Install calico pod
+    become: false
+    command: kubectl create -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calico.yaml
