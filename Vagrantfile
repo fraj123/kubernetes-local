@@ -10,7 +10,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.box = BOX_IMAGE
   if Vagrant.has_plugin?("vagrant-vbguest") then
-     config.vbguest.auto_update = false
+    config.vbguest.auto_update = false
   end
   config.vm.provider "virtualbox" do |v|
     v.memory = 4096
