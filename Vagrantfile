@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-BOX_IMAGE = "rockylinux/8"
+BOX_IMAGE = "openlogic/rockylinux-8"
 NUM_WORKER_NODES = 2
 IP_NW = "10.0.0."
 IP_START = 10
