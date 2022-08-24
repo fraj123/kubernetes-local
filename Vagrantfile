@@ -22,6 +22,10 @@ Vagrant.configure("2") do |config|
     master.vm.network :private_network, ip: IP_NW + "#{IP_START}" 
     master.vm.provision "ansible" do |ansible|
       ansible.playbook = "./configuration/k8scp.yml"
+      ansible.extra_vars = {
+        node_cp: IP_NW + "#{IP_START}",
+        number_nodes: NUM_WORKER_NODES
+      }
     end
   end
 

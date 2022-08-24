@@ -9,6 +9,45 @@
       cache_valid_time: 86400
     when: ansible_os_family == "Debian"
 
+  - name: Add overlay module
+    community.general.modprobe:
+      name: overlay
+      state: present
+
+  - name: Add br_netfilter module
+    community.general.modprobe:
+      name: br_netfilter
+      state: present
+        
+  - name: Setup required sysctl params
+    ansible.posix.sysctl:
+      name: '{{ item.key }}'
+      value: '{{ item.value }}'
+      sysctl_set: yes
+      state: present
+      reload: yes
+    with_items:
+      - {key: net.bridge.bridge-nf-call-ip6tables, value: 1}
+      - {key: net.bridge.bridge-nf-call-iptables,  value: 1}
+      - {key: net.ipv4.ip_forward,  value: 1}
+
+  - name: Update /etc/hosts file with node name
+    lineinfile:
+      dest: "/etc/hosts"
+      regexp: "^{{ item['ip'] }}.*$"
+      line: "{{ item['ip'] }}\t\t{{ item['names'] | join(' ') }}"
+      state: present
+    with_items:
+    - ip: 10.0.0.10
+      names:
+      - cp
+    - ip: 10.0.0.11
+      names:
+      - worker-01
+    - ip: 10.0.0.12
+      names:
+      - worker-02
+
   - name: Add libcontainer repository
     ansible.builtin.yum_repository:
       name: devel_kubic_libcontainers_stable
@@ -33,6 +72,12 @@
       state: latest
       update_cache: true
 
+  - name: Enable crio service
+    ansible.builtin.service:
+      name: crio
+      enabled: true
+      state: started
+
   - name: Disable SWAP
     command: swapoff -a
     when: ansible_swaptotal_mb > 0
@@ -43,23 +88,13 @@
       regexp: '^([^#].*?\s+swap\s+.*)$'
       replace: '#\1'
         
-  - name: "Add overlay module"
-    community.general.modprobe:
-      name: overlay
-      state: present
-
-  - name: "Add br_netfilter module"
-    community.general.modprobe:
-      name: br_netfilter
-      state: present
-
   - name: Add kubernetes repository
     ansible.builtin.yum_repository:
       name: kubernetes
       description: "Repo for kubernetes"
-      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-$basearch
       gpgcheck: yes
-      gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
       exclude: kubelet kubeadm kubectl
       enabled: true
 
@@ -73,16 +108,23 @@
       name: [kubelet, kubeadm, kubectl]
       disable_excludes: kubernetes
 
-  - Name: Initialize the kubernetes cluster using kubeadm
-    command: kubeadm init --apiserver-advertise-address="192.168.50.10" --apiserver-cert-extra-sans="192.168.50.10"  --node-name k8s-master --pod-network-cidr=192.168.0.0/16
+  - name: Initialize the kubernetes cluster using kubeadm
+    command: kubeadm init --apiserver-advertise-address="10.0.0.10" --apiserver-cert-extra-sans="10.0.0.10"  --node-name k8s-master --pod-network-cidr=192.168.0.0/16
 
   - name: Setup kubeconfig for vagrant user
     command: "{{ item }}"
     with_items:
-      - mkdir -p /home/vagrant/.kube
-      - cp -i /etc/kubernetes/admin.conf /home/vagrant/.kube/config
-      - chown vagrant:vagrant /home/vagrant/.kube/config
+      - mkdir -p /home/rocky/.kube
+      - cp -i /etc/kubernetes/admin.conf /home/rocky/.kube/config
+      - chown rocky:rocky /home/rocky/.kube/config
 
   - name: Install calico pod
     become: false
-    command: kubectl create -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calico.yaml
+    command: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+
+  - name: Generate join command
+    command: kubeadm token create --print-join-command
+    register: join_command
+
+  - name: Copy join command to local file
+    local_action: copy content="{{ join_command.stdout_lines[0] }}" dest="./join-command"
